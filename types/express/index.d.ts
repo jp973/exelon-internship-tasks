@@ -13,3 +13,13 @@ declare global {
   }
 }
 
+import { AdminDocument } from '../../models/db/admin'; // adjust path
+import { UserDocument } from '../../models/db/user';   // adjust path
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: UserDocument | AdminDocument;
+    }
+  }
+}

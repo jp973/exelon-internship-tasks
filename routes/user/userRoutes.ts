@@ -1,10 +1,11 @@
 import express, { Request, Response, NextFunction } from 'express';
 import passport from '../../middleware/passport';
-import { refreshUserToken } from '../../controllers/user/refreshUserToken';
 import { entryLogger } from '../../middleware/entrypoint';
 import { exitLogger } from '../../middleware/exitpoint';
 import { userValidationRules } from '../../validators/userValidator';
 import { validateRequest } from '../../middleware/validateRequest';
+import userGroupRoutes from './userGroupRoutes';
+
 
 import {
   createUser,

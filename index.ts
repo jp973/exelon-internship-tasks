@@ -20,7 +20,7 @@ import { initSocket } from "./socket/index"; // Adjust path as needed
 import http from 'http'; // <-- Add this
 import notificationRoutes from "./routes/user/notificationRoutes";
 import notificationMemberRoute from './routes/admin/notificationMemberRoutes';
-
+import userGroupRoutes from './routes/user/userGroupRoutes'; 
 
 dotenv.config(); 
 
@@ -40,6 +40,7 @@ app.use('/api/members', memberRoutes);
 app.use('/api/members', memberAuthRoutes);
 app.use("/api/notification", notificationRoutes);
 app.use('/api/notifications/member', notificationMemberRoute);
+app.use('/api/member', userGroupRoutes);
 
 
 // Swagger setup
