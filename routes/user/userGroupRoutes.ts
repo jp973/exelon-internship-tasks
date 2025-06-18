@@ -5,6 +5,8 @@ import {
   getApprovedGroupsForUser
 } from '../../controllers/user/userGroup';
 import passport from '../../middleware/passport';
+import { entryLogger } from '../../middleware/entrypoint';
+import { exitLogger } from '../../middleware/exitpoint';
 
 const router = express.Router();
 
@@ -52,7 +54,7 @@ const protectUser = passport.authenticate('user-bearer', { session: false });
  *                         items:
  *                           type: string
  */
-router.get('/groups',protectUser, getAvailableGroups);
+router.get('/groups', entryLogger, protectUser, getAvailableGroups, exitLogger);
 
 /**
  * @swagger
@@ -82,7 +84,7 @@ router.get('/groups',protectUser, getAvailableGroups);
  *       404:
  *         description: Group not found
  */
-router.post('/groups/join',protectUser, sendJoinRequest);
+router.post('/groups/join', entryLogger, protectUser, sendJoinRequest, exitLogger);
 
 /**
  * @swagger
@@ -112,6 +114,6 @@ router.post('/groups/join',protectUser, sendJoinRequest);
  *                       groupName:
  *                         type: string
  */
-router.get('/groups/approved', protectUser, getApprovedGroupsForUser);
+router.get('/groups/approved', entryLogger,  protectUser, getApprovedGroupsForUser, exitLogger);
 
 export default router;

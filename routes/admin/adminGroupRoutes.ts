@@ -1,10 +1,11 @@
 import express from 'express';
+import { entryLogger } from '../../middleware/entrypoint';
+import { exitLogger } from '../../middleware/exitpoint';
 import {
   createGroup,
   getAllGroupsWithUsers,
   getJoinRequests,
-  approveRequest,
-  rejectRequest,
+  handleJoinRequest,
   updateGroup,
   deleteGroup
 } from '../../controllers/admin/adminGroup';
@@ -50,7 +51,7 @@ const protectAdmin = passport.authenticate('admin', { session: false });
  *       500:
  *         description: Server error
  */
-router.post('/groups',protectAdmin, createGroup);
+router.post('/groups',entryLogger, protectAdmin, createGroup, exitLogger);
 
 /**
  * @swagger
@@ -66,29 +67,64 @@ router.post('/groups',protectAdmin, createGroup);
  *       500:
  *         description: Server error
  */
-router.get('/groups',protectAdmin, getAllGroupsWithUsers);
+router.get('/groups', entryLogger, protectAdmin, getAllGroupsWithUsers, exitLogger);
 
 /**
  * @swagger
  * /api/admin/groups/requests:
  *   get:
- *     summary: Get all pending join requests for admin's groups
+ *     summary: Get all pending join requests for groups created by the admin
  *     tags: [Admin - Groups]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of join requests
+ *         description: List of pending join requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Join requests fetched successfully
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       groupId:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           groupName:
+ *                             type: string
+ *                       userId:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           userName:
+ *                             type: string
+ *                           email:
+ *                             type: string
  *       500:
  *         description: Server error
  */
-router.get('/groups/requests',protectAdmin, getJoinRequests);
+router.get('/groups/requests', entryLogger, protectAdmin, getJoinRequests, exitLogger);
+
 
 /**
  * @swagger
- * /api/admin/groups/requests/{requestId}/approve:
- *   patch:
- *     summary: Approve a join request
+ * /api/admin/groups/join-request/{requestId}/action:
+ *   put:
+ *     summary: Approve or reject a join request
  *     tags: [Admin - Groups]
  *     security:
  *       - bearerAuth: []
@@ -98,37 +134,64 @@ router.get('/groups/requests',protectAdmin, getJoinRequests);
  *         required: true
  *         schema:
  *           type: string
+ *         description: ID of the join request
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [approve, reject]
+ *                 description: Action to perform on the join request
+ *                 example: approve
  *     responses:
  *       200:
- *         description: Request approved
+ *         description: Request processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Request approved successfully
  *       400:
- *         description: Group full or invalid request
+ *         description: Invalid request or action
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Invalid action. Must be "approve" or "reject".
  *       404:
- *         description: Not found
+ *         description: Join request or group not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: Request not found or already processed
  */
-router.patch('/groups/requests/:requestId/approve', protectAdmin,  approveRequest);
 
-/**
- * @swagger
- * /api/admin/groups/requests/{requestId}/reject:
- *   patch:
- *     summary: Reject a join request
- *     tags: [Admin - Groups]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: requestId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Request rejected
- *       404:
- *         description: Request not found
- */
-router.patch('/groups/requests/:requestId/reject', protectAdmin, rejectRequest);
+router.put('/groups/join-request/:requestId/action',entryLogger, protectAdmin, handleJoinRequest, exitLogger);
 
 /**
  * @swagger
@@ -161,7 +224,7 @@ router.patch('/groups/requests/:requestId/reject', protectAdmin, rejectRequest);
  *       404:
  *         description: Group not found or unauthorized
  */
-router.put('/groups/:groupId', protectAdmin, updateGroup);
+router.put('/groups/:groupId', entryLogger, protectAdmin, updateGroup, exitLogger);
 
 /**
  * @swagger
@@ -183,6 +246,6 @@ router.put('/groups/:groupId', protectAdmin, updateGroup);
  *       404:
  *         description: Group not found or unauthorized
  */
-router.delete('/groups/:groupId', protectAdmin, deleteGroup);
+router.delete('/groups/:groupId', entryLogger, protectAdmin, deleteGroup, exitLogger);
 
 export default router;

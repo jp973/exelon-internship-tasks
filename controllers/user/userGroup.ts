@@ -14,7 +14,12 @@ function getUserId(req: Request): string {
 export const getAvailableGroups = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const groups = await Group.find().select('groupName maxUsers members');
-    res.status(200).json({ success: true, data: groups });
+    req.apiResponse = {
+      success: true,
+      message: 'Groups retrieved successfully',
+      data: groups
+    };
+    next();
   } catch (err) {
     next(err);
   }
@@ -28,12 +33,20 @@ export const sendJoinRequest = async (req: Request, res: Response, next: NextFun
 
     const group = await Group.findById(groupId);
     if (!group) {
-      return res.status(404).json({ success: false, message: 'Group not found' });
+      req.apiResponse = {
+        success: false,
+        message: 'Group not found'
+      };
+      return next();
     }
 
     const existingRequest = await JoinRequest.findOne({ groupId, userId });
     if (existingRequest) {
-      return res.status(400).json({ success: false, message: 'Join request already sent' });
+      req.apiResponse = {
+        success: false,
+        message: 'Join request already sent'
+      };
+      return next();
     }
 
     const newRequest = new JoinRequest({
@@ -43,7 +56,11 @@ export const sendJoinRequest = async (req: Request, res: Response, next: NextFun
     });
     await newRequest.save();
 
-    res.status(201).json({ success: true, message: 'Join request sent successfully' });
+    req.apiResponse = {
+      success: true,
+      message: 'Join request sent successfully'
+    };
+    next();
   } catch (err) {
     next(err);
   }
@@ -59,18 +76,25 @@ export const getApprovedGroupsForUser = async (req: Request, res: Response, next
       status: 'approved'
     })
       .populate('groupId', 'groupName')
-      .lean(); // Optional: use lean to avoid Mongoose Document wrapping
+      .lean();
 
-    const approvedGroups = approvedRequests
-      .map((request) => {
-        const group = request.groupId as unknown as { _id: string; groupName: string };
-        return {
-          groupId: group._id,
-          groupName: group.groupName
-        };
-      });
+    const approvedGroups = approvedRequests.map((request) => {
+      const group = request.groupId as unknown as { _id: string; groupName: string };
+      return {
+        groupId: group._id,
+        groupName: group.groupName
+      };
+    });
 
-    res.status(200).json({ success: true, data: approvedGroups });
+    req.apiResponse = {
+      success: true,
+      message:
+        approvedGroups.length > 0
+          ? 'Approved groups retrieved successfully'
+          : 'Your group approval is pending',
+      data: approvedGroups
+    };
+    next();
   } catch (err) {
     next(err);
   }

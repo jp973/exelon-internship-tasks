@@ -23,7 +23,12 @@ export const createGroup = async (req: Request, res: Response, next: NextFunctio
       createdBy: adminId,
     });
 
-    res.status(201).json({ success: true, message: 'Group created successfully', data: group });
+    req.apiResponse = {
+      success: true,
+      message: 'Group created successfully',
+      data: group,
+    };
+    next();
   } catch (error) {
     next(error);
   }
@@ -38,7 +43,14 @@ export const getAllGroupsWithUsers = async (req: Request, res: Response, next: N
       .populate('members', 'userName email')
       .exec();
 
-    res.status(200).json({ success: true, data: groups });
+    req.apiResponse = {
+      success: true,
+      message: groups.length > 0
+        ? 'Groups fetched successfully'
+        : 'No groups created yet',
+      data: groups,
+    };
+    next();
   } catch (error) {
     next(error);
   }
@@ -56,61 +68,82 @@ export const getJoinRequests = async (req: Request, res: Response, next: NextFun
       .populate('userId', 'userName email')
       .populate('groupId', 'groupName');
 
-    res.status(200).json({ success: true, data: requests });
+    req.apiResponse = {
+      success: true,
+      message: requests.length > 0
+        ? 'Join requests fetched successfully'
+        : 'No pending join requests found',
+      data: requests,
+    };
+    next();
   } catch (error) {
     next(error);
   }
 };
 
-// ------------------ APPROVE JOIN REQUEST ------------------
-export const approveRequest = async (req: Request, res: Response, next: NextFunction) => {
+// ------------------ APPROVE OR REJECT JOIN REQUEST ------------------
+
+export const handleJoinRequest = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { requestId } = req.params;
+    const { action } = req.body; // 'approve' or 'reject'
+
+    if (!['approve', 'reject'].includes(action)) {
+      req.apiResponse = {
+        success: false,
+        message: 'Invalid action. Must be "approve" or "reject".',
+      };
+      return next();
+    }
 
     const request = await JoinRequest.findById(requestId);
     if (!request || request.status !== 'pending') {
-      return res.status(404).json({ success: false, message: 'Request not found or already processed' });
+      req.apiResponse = {
+        success: false,
+        message: 'Request not found or already processed',
+      };
+      return next();
     }
 
-    const group = await Group.findById(request.groupId);
-    if (!group) return res.status(404).json({ success: false, message: 'Group not found' });
+    if (action === 'approve') {
+      const group = await Group.findById(request.groupId);
+      if (!group) {
+        req.apiResponse = {
+          success: false,
+          message: 'Group not found',
+        };
+        return next();
+      }
 
-    if (group.members.length >= group.maxUsers) {
-      return res.status(400).json({ success: false, message: 'Group is full' });
+      if (group.members.length >= group.maxUsers) {
+        req.apiResponse = {
+          success: false,
+          message: 'Group is full',
+        };
+        return next();
+      }
+
+      group.members.push(request.userId);
+      await group.save();
+      request.status = 'approved';
     }
 
-    group.members.push(request.userId);
-    await group.save();
+    if (action === 'reject') {
+      request.status = 'rejected';
+    }
 
-    request.status = 'approved';
     await request.save();
 
-    res.status(200).json({ success: true, message: 'Request approved successfully' });
+    req.apiResponse = {
+      success: true,
+      message: `Request ${action}ed successfully`,
+    };
+    next();
   } catch (error) {
     next(error);
   }
 };
 
-// ------------------ REJECT JOIN REQUEST ------------------
-export const rejectRequest = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { requestId } = req.params;
-
-    const request = await JoinRequest.findByIdAndUpdate(
-      requestId,
-      { status: 'rejected' },
-      { new: true }
-    );
-
-    if (!request) {
-      return res.status(404).json({ success: false, message: 'Request not found' });
-    }
-
-    res.status(200).json({ success: true, message: 'Request rejected successfully' });
-  } catch (error) {
-    next(error);
-  }
-};
 
 // ------------------ UPDATE GROUP ------------------
 export const updateGroup = async (req: Request, res: Response, next: NextFunction) => {
@@ -126,10 +159,19 @@ export const updateGroup = async (req: Request, res: Response, next: NextFunctio
     );
 
     if (!updatedGroup) {
-      return res.status(404).json({ success: false, message: 'Group not found or unauthorized' });
+      req.apiResponse = {
+        success: false,
+        message: 'Group not found or unauthorized',
+      };
+      return next();
     }
 
-    res.status(200).json({ success: true, data: updatedGroup });
+    req.apiResponse = {
+      success: true,
+      message: 'Group updated successfully',
+      data: updatedGroup,
+    };
+    next();
   } catch (error) {
     next(error);
   }
@@ -143,12 +185,20 @@ export const deleteGroup = async (req: Request, res: Response, next: NextFunctio
 
     const deleted = await Group.findOneAndDelete({ _id: groupId, createdBy: adminId });
     if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Group not found or unauthorized' });
+      req.apiResponse = {
+        success: false,
+        message: 'Group not found or unauthorized',
+      };
+      return next();
     }
 
     await JoinRequest.deleteMany({ groupId });
 
-    res.status(200).json({ success: true, message: 'Group and related requests deleted' });
+    req.apiResponse = {
+      success: true,
+      message: 'Group and related requests deleted successfully',
+    };
+    next();
   } catch (error) {
     next(error);
   }
