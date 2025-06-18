@@ -59,27 +59,38 @@ router.post('/request',entryLogger,protectuser, requestAccess,exitLogger);
 
 /**
  * @swagger
- * /api/user/groups/{groupName}:
+ * /api/user/groups/approved-group:
  *   get:
- *     summary: Get group details if user is approved
+ *     summary: Get all approved group details for the logged-in user
  *     tags: [User - Groups]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - name: groupName
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *         description: Name of the group
  *     responses:
  *       200:
- *         description: Group details returned
+ *         description: List of approved groups
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 groups:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       maxUsers:
+ *                         type: number
  *       403:
- *         description: Access not approved
- *       404:
- *         description: Group not found
+ *         description: No approved groups found for the user
+ *       500:
+ *         description: Internal server error
  */
-router.get('/:groupName',entryLogger,protectuser, getGroupIfApproved,exitLogger);
+
+router.get('/approved-group', protectuser, getGroupIfApproved);
+
 
 export default router;

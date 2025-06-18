@@ -58,24 +58,23 @@ export const requestAccess = async (req: Request, res: Response) => {
 export const getGroupIfApproved = async (req: Request, res: Response) => {
   try {
     const user = req.user as UserType;
-    const { groupName } = req.params;
 
-    const group = await Group.findOne({ name: groupName });
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found' });
-    }
-
-    const approved = await ApproveRequest.findOne({
-      group: group._id,
+    // Find all approved groups for the user
+    const approvedRequests = await ApproveRequest.find({
       user: user._id,
       status: 'approved',
-    });
+    }).populate('group');
 
-    if (!approved) {
-      return res.status(403).json({ message: 'Not approved for this group' });
+    if (!approvedRequests || approvedRequests.length === 0) {
+      return res.status(403).json({ message: 'No approved groups found for this user' });
     }
 
-    res.status(200).json({ group });
+    // Extract group info from each approval
+    const groups = approvedRequests
+      .filter((req) => req.group)
+      .map((req) => req.group);
+
+    res.status(200).json({ groups });
   } catch (error) {
     console.error('❌ Error in getGroupIfApproved:', error);
     res.status(500).json({ message: 'Internal server error', error: (error as Error).message });
