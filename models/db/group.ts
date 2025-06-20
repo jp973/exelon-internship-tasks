@@ -1,11 +1,16 @@
-// models/db/group.ts
 import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IGroupNotification {
+  message: string;
+  timestamp: Date;
+}
 
 export interface IGroup extends Document {
   groupName: string;
   maxUsers: number;
-  members: mongoose.Types.ObjectId[]; // User IDs
-  createdBy: mongoose.Types.ObjectId; // Admin ID
+  members: mongoose.Types.ObjectId[];
+  createdBy: mongoose.Types.ObjectId;
+  notifications: IGroupNotification[]; 
 }
 
 const groupSchema = new Schema<IGroup>(
@@ -14,6 +19,12 @@ const groupSchema = new Schema<IGroup>(
     maxUsers: { type: Number, required: true },
     members: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     createdBy: { type: Schema.Types.ObjectId, ref: 'Admin', required: true },
+    notifications: [ //  Embedded messages array
+      {
+        message: { type: String, required: true },
+        timestamp: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

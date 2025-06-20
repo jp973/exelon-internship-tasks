@@ -2,7 +2,8 @@ import express from 'express';
 import {
   getAvailableGroups,
   sendJoinRequest,
-  getApprovedGroupsForUser
+  getApprovedGroupsForUser,
+  getMyGroupMessages
 } from '../../controllers/user/userGroup';
 import passport from '../../middleware/passport';
 import { entryLogger } from '../../middleware/entrypoint';
@@ -115,5 +116,43 @@ router.post('/groups/join', entryLogger, protectUser, sendJoinRequest, exitLogge
  *                         type: string
  */
 router.get('/groups/approved', entryLogger,  protectUser, getApprovedGroupsForUser, exitLogger);
+
+/**
+ * @swagger
+ * /api/member/groups/messages:
+ *   get:
+ *     summary: Get messages from groups the user is approved in
+ *     tags: [User - Groups]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of group messages
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       groupName:
+ *                         type: string
+ *                       notifications:
+ *                         type: array
+ *                         items:
+ *                           type: object
+ *                           properties:
+ *                             message:
+ *                               type: string
+ *                             timestamp:
+ *                               type: string
+ *                               format: date-time
+ */
+router.get('/groups/messages', entryLogger, protectUser, getMyGroupMessages, exitLogger);
 
 export default router;

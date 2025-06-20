@@ -99,3 +99,34 @@ export const getApprovedGroupsForUser = async (req: Request, res: Response, next
     next(err);
   }
 };
+
+// -------------------- GET MY GROUP MESSAGES (NEW) --------------------
+export const getMyGroupMessages = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = getUserId(req);
+
+    // Get only approved group IDs for this user
+    const approvedRequests = await JoinRequest.find({
+      userId,
+      status: 'approved'
+    });
+
+    const groupIds = approvedRequests.map(request => request.groupId);
+
+    const groups = await Group.find({ _id: { $in: groupIds } });
+
+    const messages = groups.map(group => ({
+      groupName: group.groupName,
+      notifications: group.notifications
+    }));
+
+    req.apiResponse = {
+      success: true,
+      message: messages.length > 0 ? 'Group messages fetched successfully' : 'No messages found',
+      data: messages
+    };
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
