@@ -27,7 +27,7 @@ const router = express.Router();
 //
 // Try admin‐bearer first, then member‐bearer
 const authenticateEither = passport.authenticate(
-  ['bearer','member-bearer'] as const,
+  ['admin','member-bearer'] as const,
   { session: false }
 );
 

@@ -6,7 +6,7 @@ import ApproveRequest from '../../models/db/approveRequest';
 // ✅ View all available groups
 export const viewGroups = async (_: Request, res: Response) => {
   try {
-    const groups = await Group.find();
+    const groups = await Group.find().select('name _id'); // 👈 Only return groupName and _id
     res.status(200).json({ groups });
   } catch (error) {
     console.error('❌ Error in viewGroups:', error);
@@ -59,22 +59,25 @@ export const getGroupIfApproved = async (req: Request, res: Response) => {
   try {
     const user = req.user as UserType;
 
-    // Find all approved groups for the user
+    // Find all approved group requests and populate necessary fields
     const approvedRequests = await ApproveRequest.find({
       user: user._id,
       status: 'approved',
-    }).populate('group');
+    }).populate({
+      path: 'group',
+      select: 'name maxUsers messages', // include messages
+    });
 
     if (!approvedRequests || approvedRequests.length === 0) {
       return res.status(403).json({ message: 'No approved groups found for this user' });
     }
 
-    // Extract group info from each approval
+    // Extract populated group data
     const groups = approvedRequests
       .filter((req) => req.group)
       .map((req) => req.group);
 
-    res.status(200).json({ groups });
+    res.status(200).json({ groups }); // ✅ Returns all approved groups with messages
   } catch (error) {
     console.error('❌ Error in getGroupIfApproved:', error);
     res.status(500).json({ message: 'Internal server error', error: (error as Error).message });

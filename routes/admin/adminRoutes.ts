@@ -1,12 +1,9 @@
 import express from 'express';
 import { adminLogin, adminLogout } from '../../controllers/admin/adminAuthController';
 import { refreshAdminToken } from '../../controllers/admin/refreshAdminTocken';
- 
+import groupRoutes from './groupRoutes';
 
-import { Request, Response, NextFunction } from 'express';
-interface AdminRequest extends Request {
-  user?: any;
-}
+ 
 
 const router = express.Router();
  
@@ -126,5 +123,7 @@ router.post('/logout', adminLogout);
  *         description: Invalid or expired refresh token
  */
 router.post('/refresh-token', refreshAdminToken);
+
+router.use('/', groupRoutes);
  
 export default router;

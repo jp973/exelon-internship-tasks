@@ -1,59 +1,205 @@
+import { Request, Response, NextFunction } from 'express';
 import Group from '../../models/db/group';
-import { Request, Response } from 'express';
+import JoinRequest from '../../models/db/joinRequest';
 
-export const createGroup = async (req: Request, res: Response) => {
+// ----------- Helper Function for Safe User ID Extraction -----------
+function getUserId(req: Request): string {
+  if (req.user && typeof req.user === 'object' && '_id' in req.user) {
+    return (req.user as any)._id;
+  }
+  throw new Error('Invalid or missing user');
+}
+
+// ------------------ CREATE GROUP ------------------
+export const createGroup = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, maxUsers } = req.body;
-    if (!name || !maxUsers) {
-      return res.status(400).json({ error: "Name and maxUsers are required" });
-    }
+    const { groupName, maxUsers } = req.body;
+    const adminId = getUserId(req);
 
-    const group = await Group.create({ name, maxUsers });
-    res.status(201).json({ message: "Group created successfully", group });
+    const group = await Group.create({
+      groupName,
+      maxUsers,
+      members: [],
+      createdBy: adminId,
+    });
+
+    req.apiResponse = {
+      success: true,
+      message: 'Group created successfully',
+      data: group,
+    };
+    next();
   } catch (error) {
-    console.error("Error creating group:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    next(error);
   }
 };
 
-export const getGroups = async (_: Request, res: Response) => {
+// ------------------ GET ALL GROUPS (WITH MEMBERS) ------------------
+export const getAllGroupsWithUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const groups = await Group.find();
-    res.status(200).json({ message: "Groups fetched successfully", groups });
+    const adminId = getUserId(req);
+
+    const groups = await Group.find({ createdBy: adminId })
+      .populate('members', 'userName email')
+      .exec();
+
+    req.apiResponse = {
+      success: true,
+      message: groups.length > 0
+        ? 'Groups fetched successfully'
+        : 'No groups created yet',
+      data: groups,
+    };
+    next();
   } catch (error) {
-    console.error("Error fetching groups:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    next(error);
   }
 };
 
-export const updateGroup = async (req: Request, res: Response) => {
+// ------------------ GET ALL JOIN REQUESTS ------------------
+export const getJoinRequests = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
-    const group = await Group.findByIdAndUpdate(id, req.body, { new: true });
+    const adminId = getUserId(req);
 
-    if (!group) {
-      return res.status(404).json({ error: "Group not found" });
-    }
+    const groups = await Group.find({ createdBy: adminId }, '_id');
+    const groupIds = groups.map(group => group._id);
 
-    res.status(200).json({ message: "Group updated successfully", group });
+    const requests = await JoinRequest.find({ groupId: { $in: groupIds }, status: 'pending' })
+      .populate('userId', 'userName email')
+      .populate('groupId', 'groupName');
+
+    req.apiResponse = {
+      success: true,
+      message: requests.length > 0
+        ? 'Join requests fetched successfully'
+        : 'No pending join requests found',
+      data: requests,
+    };
+    next();
   } catch (error) {
-    console.error("Error updating group:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    next(error);
   }
 };
 
-export const deleteGroup = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const group = await Group.findByIdAndDelete(id);
+// ------------------ APPROVE OR REJECT JOIN REQUEST ------------------
 
-    if (!group) {
-      return res.status(404).json({ error: "Group not found" });
+export const handleJoinRequest = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { requestId } = req.params;
+    const { action } = req.body; // 'approve' or 'reject'
+
+    if (!['approve', 'reject'].includes(action)) {
+      req.apiResponse = {
+        success: false,
+        message: 'Invalid action. Must be "approve" or "reject".',
+      };
+      return next();
     }
 
-    res.status(200).json({ message: "Group deleted successfully" });
+    const request = await JoinRequest.findById(requestId);
+    if (!request || request.status !== 'pending') {
+      req.apiResponse = {
+        success: false,
+        message: 'Request not found or already processed',
+      };
+      return next();
+    }
+
+    if (action === 'approve') {
+      const group = await Group.findById(request.groupId);
+      if (!group) {
+        req.apiResponse = {
+          success: false,
+          message: 'Group not found',
+        };
+        return next();
+      }
+
+      if (group.members.length >= group.maxUsers) {
+        req.apiResponse = {
+          success: false,
+          message: 'Group is full',
+        };
+        return next();
+      }
+
+      group.members.push(request.userId);
+      await group.save();
+      request.status = 'approved';
+    }
+
+    if (action === 'reject') {
+      request.status = 'rejected';
+    }
+
+    await request.save();
+
+    req.apiResponse = {
+      success: true,
+      message:` Request ${action}ed successfully,`
+    };
+    next();
   } catch (error) {
-    console.error("Error deleting group:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    next(error);
   }
+};
+
+
+// ------------------ UPDATE GROUP ------------------
+export const updateGroup = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { groupId } = req.params;
+    const { groupName, maxUsers } = req.body;
+    const adminId = getUserId(req);
+
+    const updatedGroup = await Group.findOneAndUpdate(
+      { _id: groupId, createdBy: adminId },
+      { groupName, maxUsers },
+      { new: true }
+    );
+
+    if (!updatedGroup) {
+      req.apiResponse = {
+        success: false,
+        message: 'Group not found or unauthorized',
+      };
+      return next();
+    }
+
+    req.apiResponse = {
+      success: true,
+      message: 'Group updated successfully',
+      data: updatedGroup,
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ------------------ DELETE GROUP ------------------
+export const deleteGroup = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { groupId } = req.params;
+    const adminId = getUserId(req);
+
+    const deleted = await Group.findOneAndDelete({ _id: groupId, createdBy: adminId });
+    if (!deleted) {
+      req.apiResponse = {
+        success: false,
+        message: 'Group not found or unauthorized',
+      };
+      return next();
+    }
+
+    await JoinRequest.deleteMany({ groupId });
+
+    req.apiResponse = {
+      success: true,
+      message: 'Group and related requests deleted successfully',
+    };
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
