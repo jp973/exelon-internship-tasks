@@ -54,7 +54,7 @@ project/
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/Nithinneelavara/multi-role-auth-backend.git
+git clone https://github.com/jp973/exelon-internship-tasks.git
 
 # 2. Navigate to project
 cd multi-role-auth-backend
