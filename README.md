@@ -84,6 +84,6 @@ JWT_SECRET=your-secret
 NODE_ENV=development
 
 👨‍💻 Author
-Nithin Neelavara
+jayaprakash
 🔗 GitHub
 
